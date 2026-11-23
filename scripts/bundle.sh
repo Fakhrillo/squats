@@ -32,5 +32,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-codesign --force --sign "Apple Development" "$APP"
+# Sign with a development certificate so camera and notification permissions survive rebuilds.
+# Without one: SIGN_IDENTITY=- scripts/bundle.sh (ad hoc).
+codesign --force --sign "${SIGN_IDENTITY:-Apple Development}" "$APP"
 echo "$APP"
