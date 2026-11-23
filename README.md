@@ -6,7 +6,7 @@ with the built-in camera, and adds anything skipped to the next set.
 ## Build and install
 
 ```bash
-scripts/bundle.sh Squats
+scripts/bundle.sh
 cp -R build/Squats.app /Applications/
 open /Applications/Squats.app
 ```
