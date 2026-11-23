@@ -97,3 +97,20 @@ private func squat(from y: Double, depth: Double) -> [Double?] {      // 1.2 s d
     s.feed(still(0.6, 2.0))                                            // back, standing: nothing was completed
     #expect(s.tracker.phase == .counting); #expect(s.tracker.count == 0)
 }
+
+// MARK: SquatTracker on recorded squats (joint coordinates logged by the recorder spike)
+
+private func count(fixture name: String) throws -> Int {
+    let url = try #require(Bundle.module.url(forResource: name, withExtension: "csv", subdirectory: "Fixtures"))
+    var tracker = SquatTracker()
+    for line in try String(contentsOf: url, encoding: .utf8).split(separator: "\n") {
+        if let f = PoseFrame(csvLine: String(line)) { _ = tracker.add(f) }
+    }
+    return tracker.count
+}
+
+/// 25 s at 1.5 m from the laptop: two seconds standing, then ten squats (the clip holds ten, not five).
+@Test func recordedSquatsAtOneAndAHalfMetresCountTen() throws {
+    let n = try count(fixture: "squats-1.5m")
+    #expect(n == 10)
+}

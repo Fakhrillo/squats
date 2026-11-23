@@ -36,10 +36,12 @@ public struct RepCounter {
 /// baseline, then measures how far the shoulders drop from it in units of shoulder width.
 public struct SquatTracker {
     public struct Tuning {
-        // ponytail: fixed thresholds from one person's recordings. If it miscounts for another
-        // body or desk, re-record with the spike and retune; `down` is also the user's depth slider.
-        public var down = 0.7, up = 0.2, minRepDuration = 0.5, minConfidence = 0.3
-        public var stillSeconds = 1.0, stillTolerance = 0.1, lostSeconds = 3.0
+        // ponytail: thresholds measured from one clip of one person (ten squats at 1.5 m, peak
+        // drops 1.29–1.48 shoulder widths, standing sway up to 0.09). down = 0.6 × smallest peak,
+        // up = 0.3 × down. If it miscounts for another body or desk, record again and retune;
+        // `down` is also the user's "Squat depth" slider.
+        public var down = 0.77, up = 0.23, minRepDuration = 0.5, minConfidence = 0.3
+        public var stillSeconds = 1.0, stillTolerance = 0.15, lostSeconds = 3.0
         public var smoothing = 3
         public init() {}
     }

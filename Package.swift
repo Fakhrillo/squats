@@ -8,7 +8,7 @@ let package = Package(
         .target(name: "SquatsKit"),
         .executableTarget(name: "PoseSpike", dependencies: ["SquatsKit"]),
         .executableTarget(name: "Squats", dependencies: ["SquatsKit"]),
-        .testTarget(name: "SquatsKitTests", dependencies: ["SquatsKit"]),
+        .testTarget(name: "SquatsKitTests", dependencies: ["SquatsKit"], resources: [.copy("Fixtures")]),
     ],
     swiftLanguageModes: [.v5]
 )

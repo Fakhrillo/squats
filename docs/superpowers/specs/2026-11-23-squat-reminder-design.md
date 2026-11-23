@@ -286,3 +286,30 @@ input idle time needs no extra permission.
 - FormCheck, four-state rep counter: https://github.com/ctsc/FormCheck
 - Vibe Reps: https://github.com/Flow-Club/vibereps
 - MediaPipe on PyPI: https://pypi.org/project/mediapipe/
+
+## Spike findings (2026-11-23)
+
+One clip was recorded: `squats-1.5m`, 25 seconds at 14 frames per second, lid at its usual
+angle. It holds ten squats, not five.
+
+| Measure | Result |
+|---|---|
+| Nose, neck, both shoulders at confidence ≥ 0.3 | 100% of frames |
+| Both hips at confidence ≥ 0.3 | 81% of frames |
+| Lowest shoulder position | 0.21 of frame height, so shoulders stay in view at the bottom |
+| Peak drop per squat | 1.29 to 1.48 shoulder widths |
+| Drop while standing between squats | −0.15 to 0.0 |
+| Standing sway, worst one-second window | 0.09 shoulder widths |
+| Shoulder width during the clip | 0.90 to 1.22 of the standing width |
+
+Decisions from the data:
+
+- Track the shoulder midpoint, as designed. No fallback needed.
+- `down` = 0.6 × smallest peak = 0.77. `up` = 0.3 × `down` = 0.23. The clip counts ten at any
+  `down` from 0.3 to 1.0, so the threshold sits in the middle of a wide safe band.
+- `stillTolerance` raised from 0.1 to 0.15: measured standing sway reaches 0.09, which left
+  almost no margin.
+- Recommended distance: about 1.5 m from the screen. 1 m and 2 m were not recorded.
+
+Not measured: the `idle` and `walk` clips were not recorded, so there is no recorded evidence
+yet that ordinary movement or walking to the laptop counts zero.
