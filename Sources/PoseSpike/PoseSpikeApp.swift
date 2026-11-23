@@ -16,8 +16,9 @@ final class Recorder: ObservableObject {
     static let labels = ["squats-1m", "squats-1.5m", "squats-2m", "idle", "walk"]
 
     let camera = PoseCamera()
-    let directory = URL(fileURLWithPath: CommandLine.arguments.count > 1
-                        ? CommandLine.arguments[1] : NSTemporaryDirectory())
+    // No command-line argument: a bare path after `open --args` makes AppKit treat the launch as
+    // "open this file", and SwiftUI then never creates the window.
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
 
     @Published var frame: PoseFrame?
     @Published var label = Recorder.labels[0]

@@ -1,3 +1,4 @@
+import ServiceManagement
 import SquatsKit
 import SwiftUI
 
@@ -28,7 +29,8 @@ private struct MenuView: View {
     @AppStorage("intervalMinutes") private var intervalMinutes = 30
     @AppStorage("maxOwed") private var maxOwed = 30
     @AppStorage("soundOn") private var soundOn = true
-    @AppStorage("depth") private var depth = 0.7
+    @AppStorage("depth") private var depth = SquatTracker.Tuning().down
+    @State private var startAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -41,6 +43,12 @@ private struct MenuView: View {
             Stepper("Carry-over cap: \(maxOwed)", value: $maxOwed, in: 10...100)
             Toggle("Sound", isOn: $soundOn)
             LabeledContent("Squat depth") { Slider(value: $depth, in: 0.3...1.2) }
+            Toggle("Start at login", isOn: Binding(
+                get: { startAtLogin },
+                set: { on in
+                    try? on ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
+                    startAtLogin = SMAppService.mainApp.status == .enabled   // show what actually happened
+                }))
             Divider()
             Button("Quit") { NSApp.terminate(nil) }
         }

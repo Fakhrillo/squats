@@ -51,7 +51,8 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
     }
 
     func tick() {
-        let inCall = false   // Task 7 replaces this
+        // In a video call: still sitting, so time counts, but the reminder waits until it ends.
+        let inCall = !sessionOpen && Presence.cameraInUseElsewhere()
         let idleLimit = TimeInterval(defaults.integer(forKey: "idleMinutes") * 60)
         let present = sessionOpen || inCall || Presence.idleSeconds() < idleLimit
         // Always the constant tick length, never a wall-clock difference: sleep cannot inflate it.
