@@ -108,3 +108,20 @@ private extension Ledger {
     let afterSet = g.shouldPost(due: false, inCall: false, sessionOpen: false)
     #expect(!duringSet); #expect(!afterSet)
 }
+
+// Texts and countdown shown in the menu.
+@Test func menuTextsFollowWhatIsOwed() {
+    var l = Ledger()
+    #expect(l.statusText == "All caught up"); #expect(l.actionText(perSet: 10) == "Do a set of 10")
+    l.run(60)
+    #expect(l.statusText == "10 squats owed"); #expect(l.actionText(perSet: 10) == "Do 10 squats")
+    l.squats(9)
+    #expect(l.statusText == "1 squat owed"); #expect(l.actionText(perSet: 10) == "Do 1 squat")
+}
+
+@Test func countdownProgressRunsFromZeroToOne() {
+    var l = Ledger(); #expect(l.progress(interval: 1800) == 0)
+    l.run(30); #expect(l.progress(interval: 1800) == 0.5)
+    l.elapsed = 5000; #expect(l.progress(interval: 1800) == 1)        // interval shortened mid-run
+    #expect(l.progress(interval: 0) == 0)
+}

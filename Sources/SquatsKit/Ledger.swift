@@ -42,6 +42,30 @@ public struct Ledger: Codable, Equatable {
 
     public func target(perSet: Int) -> Int { owed > 0 ? owed : perSet }
 
+    // MARK: What the menu shows
+
+    public var statusText: String {
+        switch owed {
+        case 0: return "All caught up"
+        case 1: return "1 squat owed"
+        default: return "\(owed) squats owed"
+        }
+    }
+
+    /// The label of the main button: exactly what pressing it will ask for.
+    public func actionText(perSet: Int) -> String {
+        switch owed {
+        case 0: return "Do a set of \(perSet)"
+        case 1: return "Do 1 squat"
+        default: return "Do \(owed) squats"
+        }
+    }
+
+    /// How far through the current interval the sitting timer is, 0…1.
+    public func progress(interval: TimeInterval) -> Double {
+        interval > 0 ? min(1, max(0, elapsed / interval)) : 0
+    }
+
     public func noticeText(perSet: Int) -> String {
         let carried = owed - perSet
         return carried > 0 ? "\(owed) squats — \(carried) carried over" : "Time for \(owed) squats"
