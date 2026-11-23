@@ -57,6 +57,9 @@ final class SquatSession: ObservableObject {
     private let model: AppModel
     private var tracker: SquatTracker
     private let soundOn = UserDefaults.standard.bool(forKey: "soundOn")
+    /// Nobody in view this long: close, so a set you were called away from does not leave the
+    /// camera on.
+    private static let abandonAfter: TimeInterval = 60
     private var finished = false
 
     init(model: AppModel, close: @escaping () -> Void) {
@@ -95,6 +98,10 @@ final class SquatSession: ObservableObject {
         guard count < target else { return }
         let completedRep = tracker.add(frame)
         phase = tracker.phase
+        if tracker.unseenFor > Self.abandonAfter {
+            close()
+            return
+        }
         guard completedRep else { return }
         count += 1
         model.recordSquat()

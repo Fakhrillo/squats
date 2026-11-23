@@ -5,7 +5,7 @@ import Vision
 /// Built-in camera → Vision body pose → one `PoseFrame` per processed frame.
 /// The camera runs only between `start()` and `stop()`. Nothing is written anywhere.
 ///
-/// `@unchecked Sendable`: `busy` is confined to `queue`, and `onFrame` is set once before `start()`
+/// `@unchecked Sendable`: `busy` and `stopped` are confined to `queue`, and `onFrame` is set once before `start()`
 /// and only ever called on the main actor.
 public final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     public enum StartResult { case running, denied, noCamera }
@@ -18,8 +18,9 @@ public final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     /// Nearest person in view, or a frame with no joints when nobody is seen.
     public var onFrame: (@MainActor (PoseFrame) -> Void)?
 
-    private let queue = DispatchQueue(label: "squats.camera")
-    private var busy = false   // read and written only on `queue`
+    let queue = DispatchQueue(label: "squats.camera")
+    private var busy = false      // read and written only on `queue`
+    private var stopped = false   // read and written only on `queue`; a camera object is used once
 
     /// Asks for camera permission on first use.
     public func start() async -> StartResult {
@@ -44,12 +45,24 @@ public final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
             connection.isVideoMirrored = false   // Vision sees the true image; only the preview is mirrored
         }
         session.commitConfiguration()
-        queue.async { self.session.startRunning() }
+        run()
         return .running
     }
 
+    /// The last step of `start()`. Does nothing once `stop()` has been called: the window may have
+    /// closed while the permission prompt was still up, and the camera must not come on after that.
+    func run() {
+        queue.async {
+            guard !self.stopped else { return }
+            self.session.startRunning()
+        }
+    }
+
     public func stop() {
-        queue.async { self.session.stopRunning() }
+        queue.async {
+            self.stopped = true
+            self.session.stopRunning()
+        }
     }
 
     public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,

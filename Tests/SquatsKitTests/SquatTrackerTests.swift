@@ -114,3 +114,31 @@ private func count(fixture name: String) throws -> Int {
     let n = try count(fixture: "squats-1.5m")
     #expect(n == 10)
 }
+
+// MARK: Review fixes
+
+@Test func baselineTakenAtTheDeskIsReplacedAfterWalkingBack() {
+    // Press Start at the laptop: close to the camera, shoulders wide and low in the frame.
+    var s = Sim(); s.feed(still(0.3, 1.2), width: 0.8); #expect(s.tracker.phase == .counting)
+    // Walk back to the squat spot: the same person is now far narrower than the desk baseline.
+    s.feed(still(0.7, 4.5), width: 0.33)
+    #expect(s.tracker.phase == .counting)                             // re-calibrated at the new spot
+    for _ in 0..<3 { s.feed(squat(from: 0.7, depth: 0.33), width: 0.33); s.feed(still(0.7, 0.3), width: 0.33) }
+    #expect(s.tracker.count == 3)
+}
+
+@Test func aSmallerPersonInTheBackgroundIsIgnored() {
+    var s = Sim(); s.feed(still(0.6, 1.2))
+    // The user is missed for a second and a colleague far behind is reported instead:
+    // narrow shoulders, lower in the frame, which would read as a deep "drop".
+    s.feed(still(0.4, 1.0), width: 0.1)
+    s.feed(still(0.6, 1.0))
+    #expect(s.tracker.count == 0)
+}
+
+@Test func reportsHowLongNobodyHasBeenTracked() {
+    var s = Sim(); s.feed(Array(repeating: nil, count: 15 * 61))      // window open, nobody in view
+    #expect(s.tracker.unseenFor >= 60)
+    s.feed(still(0.6, 0.2)); #expect(s.tracker.unseenFor == 0)
+    s.feed(Array(repeating: nil, count: 15 * 10)); #expect(s.tracker.unseenFor >= 9.9)
+}
