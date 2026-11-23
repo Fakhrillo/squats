@@ -1,4 +1,5 @@
 import Foundation
+import Vision
 
 /// One body joint. `x` and `y` are in units of image height, origin bottom-left, y grows upward.
 public struct Joint: Equatable {
@@ -65,5 +66,24 @@ public struct PoseFrame: Equatable {
     public static func nearest(_ frames: [PoseFrame]) -> PoseFrame? {
         let withShoulders = frames.compactMap { f in f.sample(minConfidence: 0).map { (f, $0.width) } }
         return withShoulders.max { $0.1 < $1.1 }?.0 ?? frames.first
+    }
+
+    var joints: [Joint] { Self.columns.compactMap { self[keyPath: $0.path] } }
+}
+
+extension PoseFrame {
+    /// `aspect` is image width / height: Vision normalizes x to the width, we want height units.
+    public init(_ observation: HumanBodyPoseObservation, time: TimeInterval, aspect: Double) {
+        self.init(time: time)
+        func joint(_ name: HumanBodyPoseObservation.JointName) -> Joint? {
+            guard let j = observation.joint(for: name), j.confidence > 0 else { return nil }
+            return Joint(x: j.location.x * aspect, y: j.location.y, confidence: Double(j.confidence))
+        }
+        nose = joint(.nose)
+        neck = joint(.neck)
+        leftShoulder = joint(.leftShoulder)
+        rightShoulder = joint(.rightShoulder)
+        leftHip = joint(.leftHip)
+        rightHip = joint(.rightHip)
     }
 }

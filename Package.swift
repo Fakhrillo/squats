@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     targets: [
         .target(name: "SquatsKit"),
+        .executableTarget(name: "PoseSpike", dependencies: ["SquatsKit"]),
         .testTarget(name: "SquatsKitTests", dependencies: ["SquatsKit"]),
     ],
     swiftLanguageModes: [.v5]
