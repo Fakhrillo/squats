@@ -47,3 +47,19 @@ public struct Ledger: Codable, Equatable {
         return carried > 0 ? "\(owed) squats — \(carried) carried over" : "Time for \(owed) squats"
     }
 }
+
+/// Decides when a due set may be announced: held during a call and sent when it ends,
+/// dropped while a set is in progress.
+public struct NoticeGate {
+    private var pending = false
+
+    public init() {}
+
+    public mutating func shouldPost(due: Bool, inCall: Bool, sessionOpen: Bool) -> Bool {
+        if due { pending = true }
+        if sessionOpen { pending = false }
+        guard pending, !inCall else { return false }
+        pending = false
+        return true
+    }
+}

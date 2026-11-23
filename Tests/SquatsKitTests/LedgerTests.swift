@@ -84,3 +84,27 @@ private extension Ledger {
     var l = Ledger(); l.run(60); #expect(l.noticeText(perSet: 10) == "Time for 10 squats")
     l.run(60); #expect(l.noticeText(perSet: 10) == "20 squats — 10 carried over")
 }
+
+// NoticeGate: when a due set may be announced.
+@Test func noticePostsOnceWhenDue() {
+    var g = NoticeGate()
+    let first = g.shouldPost(due: true, inCall: false, sessionOpen: false)
+    let second = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    #expect(first); #expect(!second)
+}
+
+@Test func noticeIsHeldDuringACallAndSentWhenItEnds() {
+    var g = NoticeGate()
+    let duringCall = g.shouldPost(due: true, inCall: true, sessionOpen: false)
+    let stillInCall = g.shouldPost(due: false, inCall: true, sessionOpen: false)
+    let callEnded = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    let after = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    #expect(!duringCall); #expect(!stillInCall); #expect(callEnded); #expect(!after)
+}
+
+@Test func noticeIsDroppedWhileASetIsInProgress() {
+    var g = NoticeGate()
+    let duringSet = g.shouldPost(due: true, inCall: false, sessionOpen: true)
+    let afterSet = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    #expect(!duringSet); #expect(!afterSet)
+}

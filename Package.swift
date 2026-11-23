@@ -7,6 +7,7 @@ let package = Package(
     targets: [
         .target(name: "SquatsKit"),
         .executableTarget(name: "PoseSpike", dependencies: ["SquatsKit"]),
+        .executableTarget(name: "Squats", dependencies: ["SquatsKit"]),
         .testTarget(name: "SquatsKitTests", dependencies: ["SquatsKit"]),
     ],
     swiftLanguageModes: [.v5]
