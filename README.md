@@ -74,7 +74,7 @@ Click the menu-bar icon.
 | Start at login | off | Needs the app to live in `/Applications` |
 
 One setting has no switch: more than 5 minutes without input counts as being away. Change it with
-`defaults write local.squats idleMinutes -int 10`.
+`defaults write io.github.fakhrillo.squats idleMinutes -int 10`.
 
 ## How squats are counted
 

@@ -9,7 +9,7 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
     static let defaultSettings: [String: Any] = [
         "perSet": 10, "intervalMinutes": 30, "maxOwed": 30, "soundOn": true,
         "depth": SquatTracker.Tuning().down,
-        "idleMinutes": 5,   // no UI: `defaults write local.squats idleMinutes -int N`
+        "idleMinutes": 5,   // no UI: `defaults write io.github.fakhrillo.squats idleMinutes -int N`
     ]
     private static let tickSeconds: TimeInterval = 30
     private static let noticeID = "squats.due"
