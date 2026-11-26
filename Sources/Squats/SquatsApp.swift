@@ -1,22 +1,20 @@
-import SwiftUI
+import AppKit
 
+/// A plain AppKit entry point: the whole app is one menu-bar item, so there is no SwiftUI scene.
 @main
-struct SquatsApp: App {
-    @StateObject private var model: AppModel
+@MainActor
+final class SquatsApp: NSObject, NSApplicationDelegate {
+    private let model = AppModel()
+    private var menu: MenuBarItem?
 
-    init() {
-        let model = AppModel()
-        model.start()
-        _model = StateObject(wrappedValue: model)
+    static func main() {
+        let app = SquatsApp()
+        NSApplication.shared.delegate = app   // a weak reference: an optimised build frees `app` here
+        withExtendedLifetime(app) { NSApplication.shared.run() }
     }
 
-    var body: some Scene {
-        MenuBarExtra {
-            MenuView(model: model)
-        } label: {
-            Image(systemName: "figure.strengthtraining.functional")
-            if model.ledger.owed > 0 { Text("\(model.ledger.owed)") }
-        }
-        .menuBarExtraStyle(.window)
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        model.start()
+        menu = MenuBarItem(model: model)
     }
 }

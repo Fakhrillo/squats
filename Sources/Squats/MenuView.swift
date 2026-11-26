@@ -113,8 +113,9 @@ struct MenuView: View {
     private var settings: some View {
         VStack(spacing: 9) {
             stepperRow("Squats per set", value: $perSet, in: 1...30, shown: "\(perSet)")
-            stepperRow("Remind every", value: $intervalMinutes, in: 1...120, shown: "\(intervalMinutes) min")
-            stepperRow("Carry-over cap", value: $maxOwed, in: 10...100, shown: "\(maxOwed)")
+            stepperRow("Remind every", value: $intervalMinutes, in: 5...120, step: 5,
+                       shown: "\(intervalMinutes) min")
+            stepperRow("Owe at most", value: $maxOwed, in: 10...100, step: 5, shown: "\(maxOwed) squats")
             switchRow("Working hours only", isOn: $hoursOn)
             if hoursOn {
                 Group {   // indented: these only apply while working hours are on
@@ -148,12 +149,12 @@ struct MenuView: View {
     }
 
     private func stepperRow(_ title: String, value: Binding<Int>, in range: ClosedRange<Int>,
-                            shown: String) -> some View {
+                            step: Int = 1, shown: String) -> some View {
         HStack {
             Text(title)
             Spacer()
             Text(shown).foregroundStyle(.secondary).monospacedDigit()
-            Stepper(title, value: value, in: range).labelsHidden()
+            Stepper(title, value: value, in: range, step: step).labelsHidden()
         }
     }
 
