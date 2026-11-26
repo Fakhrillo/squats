@@ -23,6 +23,14 @@ private func counted(_ drops: [Double], dt: Double = 0.2) -> (count: Int, hits: 
 
 @Test func neverComingBackUpCountsNothing() { #expect(counted([0, 0.5, 0.9, 0.9, 0.9]).count == 0) }
 
+@Test func aDipThatComesUpShortIsReportedAsShallow() {
+    var c = RepCounter(down: 0.7, up: 0.2, minDuration: 0.5)
+    for (i, d) in [0, 0.4, 0.6, 0.4, 0.1].enumerated() { _ = c.add(drop: d, at: Double(i) * 0.2) }
+    #expect(c.shallow == 1); #expect(c.count == 0)
+    for (i, d) in [0, 0.25, 0.3, 0.25, 0.1].enumerated() { _ = c.add(drop: d, at: 2 + Double(i) * 0.2) }
+    #expect(c.shallow == 1)                                           // sway is not a shallow squat
+}
+
 @Test func fiveSquatsCountFive() {
     #expect(counted(Array(repeating: [0.1, 0.5, 0.9, 0.5, 0.1], count: 5).flatMap { $0 }).count == 5)
 }
@@ -71,9 +79,10 @@ private func squat(from y: Double, depth: Double) -> [Double?] {      // 1.2 s d
     #expect(s.tracker.count == 3)
 }
 
-@Test func depthIsMeasuredInShoulderWidths() {       // same dip, person twice as close: only half a width
-    var s = Sim(); s.feed(still(0.6, 1.2), width: 0.5); s.feed(squat(from: 0.6, depth: 0.25), width: 0.5)
-    s.feed(still(0.6, 0.3), width: 0.5); #expect(s.tracker.count == 0)
+@Test func depthIsMeasuredInShoulderWidths() {       // same dip, person half as far away: only 0.66 of a width
+    var s = Sim(); s.feed(still(0.7, 1.2), width: 0.38); #expect(s.tracker.phase == .counting)
+    s.feed(squat(from: 0.7, depth: 0.25), width: 0.38)
+    s.feed(still(0.7, 0.3), width: 0.38); #expect(s.tracker.count == 0)
 }
 
 @Test func lowConfidenceFramesAreIgnored() {
@@ -117,12 +126,14 @@ private func count(fixture name: String) throws -> Int {
 
 // MARK: Review fixes
 
-@Test func baselineTakenAtTheDeskIsReplacedAfterWalkingBack() {
+@Test func nothingIsReadAtTheDeskAndCountingStartsAtTheSquatSpot() {
     // Press Start at the laptop: close to the camera, shoulders wide and low in the frame.
-    var s = Sim(); s.feed(still(0.3, 1.2), width: 0.8); #expect(s.tracker.phase == .counting)
-    // Walk back to the squat spot: the same person is now far narrower than the desk baseline.
-    s.feed(still(0.7, 4.5), width: 0.33)
-    #expect(s.tracker.phase == .counting)                             // re-calibrated at the new spot
+    var s = Sim(); s.feed(still(0.3, 2.0), width: 0.8)
+    #expect(s.tracker.phase == .calibrating)
+    if case .tooClose(let steps)? = s.tracker.framing { #expect(steps > 1) } else { Issue.record("expected too close") }
+    // Walk back to the squat spot and stand still for a second: now it starts.
+    s.feed(still(0.7, 1.2), width: 0.33)
+    #expect(s.tracker.phase == .counting); #expect(s.tracker.framing == .good)
     for _ in 0..<3 { s.feed(squat(from: 0.7, depth: 0.33), width: 0.33); s.feed(still(0.7, 0.3), width: 0.33) }
     #expect(s.tracker.count == 3)
 }
@@ -134,6 +145,77 @@ private func count(fixture name: String) throws -> Int {
     s.feed(still(0.4, 1.0), width: 0.1)
     s.feed(still(0.6, 1.0))
     #expect(s.tracker.count == 0)
+}
+
+// MARK: Distance and readiness
+
+@Test func framingJudgesDistanceFromShoulderWidth() {
+    let t = SquatTracker.Tuning()
+    #expect(t.framing(y: 0.713, width: 0.325) == .good)               // the recorded clip, 1.5 m
+    // 0.8 m away: about 1.43 m is the aim, so one step back.
+    if case .tooClose(let steps) = t.framing(y: 0.8, width: 0.61) { #expect(abs(steps - 1.06) < 0.05) }
+    else { Issue.record("expected too close") }
+    if case .tooFar(let steps) = t.framing(y: 0.5, width: 0.1) { #expect(steps > 3) }
+    else { Issue.record("expected too far") }
+    // Right size, but no room below the shoulders for a squat: a little further back.
+    #expect(t.framing(y: 0.3, width: 0.3) == .tooClose(steps: 0.5))
+    // 1.1 m in a small room: closer than ideal, but the whole squat still fits in the picture.
+    #expect(t.framing(y: 0.8, width: 0.44) == .good)
+    #expect(t.framing(y: 0.5, width: 0) == .tooFar(steps: 9))         // never an endless step count
+}
+
+@Test func swayAtTheEdgeOfTheGoodRangeStillStarts() {
+    var s = Sim()
+    for i in 0..<45 { s.feed([0.75], width: i % 2 == 0 ? 0.452 : 0.468) }   // either side of the limit
+    #expect(s.tracker.phase == .counting)
+}
+
+@Test func readinessFillsWhileStandingStillAndDeepEnoughIsReported() {
+    var s = Sim(); s.feed(still(0.6, 0.5))
+    #expect(s.tracker.stillProgress > 0.3); #expect(s.tracker.stillProgress < 0.7)
+    s.feed(still(0.6, 0.7)); #expect(s.tracker.phase == .counting)
+    s.feed(Array(squat(from: 0.6, depth: 0.25).prefix(9))); #expect(s.tracker.isDeepEnough)
+    s.feed(Array(squat(from: 0.6, depth: 0.25).suffix(9))); s.feed(still(0.6, 0.3))
+    #expect(!s.tracker.isDeepEnough); #expect(s.tracker.count == 1)
+}
+
+// MARK: Stuck count (a standing level read at the wrong moment must correct itself)
+
+@Test func aStandingLevelTakenAtTheBottomOfASquatCorrectsItself() {
+    // Moving before the app was ready: it catches a one-second pause partway down.
+    var s = Sim(); s.feed(still(0.35, 1.2)); #expect(s.tracker.phase == .counting)
+    s.feed(still(0.6, 0.3))
+    for _ in 0..<3 { s.feed(squat(from: 0.6, depth: 0.25)); s.feed(still(0.6, 0.3)) }
+    #expect(s.tracker.count == 3)
+}
+
+@Test func aStandingLevelThatWasTooHighCorrectsItself() {
+    var s = Sim(); s.feed(still(0.6, 1.2))
+    // Settling into a lower stance, 0.32 shoulder widths under the first reading: every squat
+    // from here used to stay unfinished, because the top never read as "standing".
+    s.feed(still(0.52, 6.5))
+    for _ in 0..<3 { s.feed(squat(from: 0.52, depth: 0.25)); s.feed(still(0.52, 0.3)) }
+    #expect(s.tracker.count == 3)
+}
+
+@Test func sittingDownForLongerThanASlowSquatIsNotASquat() {
+    var s = Sim(); s.feed(still(0.6, 1.2))
+    s.feed(still(0.3, 8)); s.feed(still(0.6, 1))
+    #expect(s.tracker.count == 0)
+}
+
+@Test func oneBadPoseFrameDoesNotStopTheCount() {
+    var s = Sim(); s.feed(still(0.6, 3))
+    s.feed([0.85])                                                    // a single pose far above the shoulders
+    for _ in 0..<5 { s.feed(squat(from: 0.6, depth: 0.25)); s.feed(still(0.6, 0.3)) }
+    #expect(s.tracker.count == 5)
+}
+
+@Test func aMomentOnTiptoeDoesNotStopTheCount() {
+    var s = Sim(); s.feed(still(0.6, 5))
+    s.feed(still(0.68, 0.5))                                          // a third of a width up for half a second
+    for _ in 0..<5 { s.feed(squat(from: 0.6, depth: 0.25)); s.feed(still(0.6, 0.3)) }
+    #expect(s.tracker.count == 5)
 }
 
 @Test func reportsHowLongNobodyHasBeenTracked() {

@@ -80,28 +80,18 @@ public final class PoseCamera: NSObject, AVCaptureVideoDataOutputSampleBufferDel
     }
 }
 
-/// Mirrored camera preview at 16:9 with a dot on every joint of confidence ≥ 0.3.
+/// Mirrored camera preview at 16:9. `tick` should change with every frame (see `PreviewLayerView`).
 public struct CameraPreview: View {
     private let session: AVCaptureSession
-    private let frame: PoseFrame?
+    private let tick: TimeInterval?
 
-    public init(session: AVCaptureSession, frame: PoseFrame?) {
+    public init(session: AVCaptureSession, tick: TimeInterval?) {
         self.session = session
-        self.frame = frame
+        self.tick = tick
     }
 
     public var body: some View {
-        PreviewLayerView(session: session, tick: frame?.time)
-            .overlay {
-                Canvas { context, size in
-                    for joint in frame?.joints ?? [] where joint.confidence >= 0.3 {
-                        let x = (1 - joint.x / PoseCamera.aspect) * size.width
-                        let y = (1 - joint.y) * size.height
-                        context.fill(Path(ellipseIn: CGRect(x: x - 5, y: y - 5, width: 10, height: 10)),
-                                     with: .color(.green))
-                    }
-                }
-            }
+        PreviewLayerView(session: session, tick: tick)
             .aspectRatio(PoseCamera.aspect, contentMode: .fit)
             .background(.black)
     }

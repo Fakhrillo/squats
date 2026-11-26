@@ -21,8 +21,9 @@ skip is not forgotten, it is owed.
   mouse input in the last 5 minutes, or a video call in progress. Walk away and the timer pauses.
 - **Every 30 minutes you owe a set.** A notification offers **Start** or **Skip**, and the
   menu-bar icon shows how many squats you owe.
-- **Start opens the counter.** Step back about 1.5 m, hold still for a second, and squat. Each
-  squat ticks; at the target the window closes and the camera turns off.
+- **Start opens the counter.** It tells you how many steps to move back, and when you reach a good
+  spot you hold still for a second and squat. A figure follows your body, a depth bar shows when a
+  squat is deep enough to count, and at the target the window closes and the camera turns off.
 - **Skipping is allowed, forgetting is not.** A skipped, ignored or half-finished set stays owed
   and the next one stacks on top, up to a cap of 30. The count clears at the start of each day.
 - **It stays out of your calls.** While another app is using the camera, no notification appears.
@@ -69,7 +70,7 @@ Click the menu-bar icon.
 |---|---|---|
 | Squats per set | 10 | How many squats each interval adds |
 | Every N min | 30 | Sitting time between sets |
-| Carry-over cap | 30 | The most you can owe at once |
+| Owe at most | 30 squats | Where skipped sets stop piling up |
 | Sound | on | Tick per squat, chime when the set is done |
 | Squat depth | 0.77 | How far your shoulders must drop, in shoulder widths. Lower it if squats are missed, raise it if small movements count |
 | Working hours only | off | Reminders and the sitting timer run only between two hours you pick (9:00 to 18:00 by default), optionally on weekdays only |
@@ -88,21 +89,29 @@ A laptop camera faces you and mostly sees your head and shoulders, so the usual 
 does not work. Instead:
 
 1. Apple's Vision framework finds your body joints in each frame.
-2. When you stand still for a second, the height and width of your shoulders become the baseline.
-3. The app tracks how far your shoulders drop below that baseline, measured in your own shoulder
-   widths so that distance from the camera does not matter.
+2. The app waits until you are a good distance away, judged from how wide your shoulders look, and
+   standing still for a second.
+3. It then tracks how far your shoulders drop below their highest point of the last few seconds,
+   measured in your own shoulder widths so that distance from the camera does not matter. Because
+   the standing level follows you, a reading taken at a bad moment corrects itself.
 4. A squat is counted on the way back up: the drop must pass a "down" threshold and then return
    below an "up" threshold, and the whole movement must take at least half a second.
 
-If you move closer or further away, or leave the frame, it recalibrates where you now stand and
-keeps the count.
+If you move much closer or further away, or leave the frame, it starts over where you now stand
+and keeps the count.
 
 ## Limits worth knowing
 
 - The thresholds were measured from a single recording of one person at 1.5 m. They may need the
   depth slider for a different body, desk or camera angle.
-- Anything that lowers and raises your shoulders far enough counts, including sitting down and
-  standing up. It does not judge form.
+- Anything that lowers and raises your shoulders far enough within a few seconds counts, such as
+  sitting down and getting straight back up. It does not judge form.
+- The step-back guidance estimates distance from shoulder width, scaled from that same recording.
+  On another camera it can be off by a step.
+- You need room to stand about 1.1 m or more from the laptop; closer than that it keeps asking you
+  to step back.
+- A squat held at the bottom for more than about 5 seconds is not counted, and moving a long way
+  back in the middle of a set can cost the next couple of squats.
 - Built-in camera only. macOS only.
 - Long stretches of reading with no input, and audio-only calls, are not counted as sitting.
 

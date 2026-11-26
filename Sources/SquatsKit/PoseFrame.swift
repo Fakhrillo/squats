@@ -20,6 +20,18 @@ public struct PoseSample: Equatable {
 public struct PoseFrame: Equatable {
     public var time: TimeInterval
     public var nose, neck, leftShoulder, rightShoulder, leftHip, rightHip: Joint?
+    /// Arms and legs, for drawing the figure only: the tracker ignores them and they are not in the CSV.
+    public var leftElbow, rightElbow, leftWrist, rightWrist, leftKnee, rightKnee, leftAnkle, rightAnkle: Joint?
+
+    /// The joint pairs to connect when drawing the figure (the head is drawn around the nose).
+    public static let bones: [(KeyPath<PoseFrame, Joint?>, KeyPath<PoseFrame, Joint?>)] = [
+        (\.leftShoulder, \.rightShoulder), (\.leftHip, \.rightHip),
+        (\.leftShoulder, \.leftHip), (\.rightShoulder, \.rightHip),
+        (\.leftShoulder, \.leftElbow), (\.leftElbow, \.leftWrist),
+        (\.rightShoulder, \.rightElbow), (\.rightElbow, \.rightWrist),
+        (\.leftHip, \.leftKnee), (\.leftKnee, \.leftAnkle),
+        (\.rightHip, \.rightKnee), (\.rightKnee, \.rightAnkle),
+    ]
 
     public init(time: TimeInterval) { self.time = time }
 
@@ -67,8 +79,6 @@ public struct PoseFrame: Equatable {
         let withShoulders = frames.compactMap { f in f.sample(minConfidence: 0).map { (f, $0.width) } }
         return withShoulders.max { $0.1 < $1.1 }?.0 ?? frames.first
     }
-
-    var joints: [Joint] { Self.columns.compactMap { self[keyPath: $0.path] } }
 }
 
 extension PoseFrame {
@@ -85,5 +95,13 @@ extension PoseFrame {
         rightShoulder = joint(.rightShoulder)
         leftHip = joint(.leftHip)
         rightHip = joint(.rightHip)
+        leftElbow = joint(.leftElbow)
+        rightElbow = joint(.rightElbow)
+        leftWrist = joint(.leftWrist)
+        rightWrist = joint(.rightWrist)
+        leftKnee = joint(.leftKnee)
+        rightKnee = joint(.rightKnee)
+        leftAnkle = joint(.leftAnkle)
+        rightAnkle = joint(.rightAnkle)
     }
 }
