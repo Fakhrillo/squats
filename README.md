@@ -27,6 +27,7 @@ skip is not forgotten, it is owed.
   and the next one stacks on top, up to a cap of 30. The count clears at the start of each day.
 - **It stays out of your calls.** While another app is using the camera, no notification appears.
   It arrives when the call ends.
+- **It keeps to your hours.** Optional working hours, and a one-hour pause for when you can't be interrupted.
 
 ## Privacy
 
@@ -71,7 +72,12 @@ Click the menu-bar icon.
 | Carry-over cap | 30 | The most you can owe at once |
 | Sound | on | Tick per squat, chime when the set is done |
 | Squat depth | 0.77 | How far your shoulders must drop, in shoulder widths. Lower it if squats are missed, raise it if small movements count |
+| Working hours only | off | Reminders and the sitting timer run only between two hours you pick (9:00 to 18:00 by default), optionally on weekdays only |
 | Start at login | off | Needs the app to live in `/Applications` |
+
+**Pause for an hour** sits above Settings, for a presentation or lunch at your desk. While paused or
+outside working hours no sitting time is counted and no reminder appears; squats you already owe stay
+owed, and you can still do a set.
 
 One setting has no switch: more than 5 minutes without input counts as being away. Change it with
 `defaults write io.github.fakhrillo.squats idleMinutes -int 10`.

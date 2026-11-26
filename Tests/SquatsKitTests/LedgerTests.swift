@@ -88,24 +88,24 @@ private extension Ledger {
 // NoticeGate: when a due set may be announced.
 @Test func noticePostsOnceWhenDue() {
     var g = NoticeGate()
-    let first = g.shouldPost(due: true, inCall: false, sessionOpen: false)
-    let second = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    let first = g.shouldPost(due: true, hold: false, drop: false)
+    let second = g.shouldPost(due: false, hold: false, drop: false)
     #expect(first); #expect(!second)
 }
 
 @Test func noticeIsHeldDuringACallAndSentWhenItEnds() {
     var g = NoticeGate()
-    let duringCall = g.shouldPost(due: true, inCall: true, sessionOpen: false)
-    let stillInCall = g.shouldPost(due: false, inCall: true, sessionOpen: false)
-    let callEnded = g.shouldPost(due: false, inCall: false, sessionOpen: false)
-    let after = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    let duringCall = g.shouldPost(due: true, hold: true, drop: false)
+    let stillInCall = g.shouldPost(due: false, hold: true, drop: false)
+    let callEnded = g.shouldPost(due: false, hold: false, drop: false)
+    let after = g.shouldPost(due: false, hold: false, drop: false)
     #expect(!duringCall); #expect(!stillInCall); #expect(callEnded); #expect(!after)
 }
 
 @Test func noticeIsDroppedWhileASetIsInProgress() {
     var g = NoticeGate()
-    let duringSet = g.shouldPost(due: true, inCall: false, sessionOpen: true)
-    let afterSet = g.shouldPost(due: false, inCall: false, sessionOpen: false)
+    let duringSet = g.shouldPost(due: true, hold: false, drop: true)
+    let afterSet = g.shouldPost(due: false, hold: false, drop: false)
     #expect(!duringSet); #expect(!afterSet)
 }
 

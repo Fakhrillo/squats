@@ -11,6 +11,10 @@ struct MenuView: View {
     @AppStorage("maxOwed") private var maxOwed = 30
     @AppStorage("soundOn") private var soundOn = true
     @AppStorage("depth") private var depth = SquatTracker.Tuning().down
+    @AppStorage("hoursOn") private var hoursOn = false
+    @AppStorage("startHour") private var startHour = 9
+    @AppStorage("endHour") private var endHour = 18
+    @AppStorage("weekdaysOnly") private var weekdaysOnly = true
     @State private var startAtLogin = SMAppService.mainApp.status == .enabled
     @State private var showSettings: Bool
 
@@ -32,6 +36,13 @@ struct MenuView: View {
             Divider()
 
             VStack(spacing: 2) {
+                MenuRow(action: { model.togglePause() }) {
+                    Text(isPaused ? "Resume reminders" : "Pause for an hour")
+                    Spacer()
+                    Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
                 MenuRow(action: { showSettings.toggle() }) {
                     Text("Settings")
                     Spacer()
@@ -72,7 +83,7 @@ struct MenuView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.ledger.statusText).font(.headline)
-                Text("Next set in \(minutesLeft) min").foregroundStyle(.secondary)
+                Text(timerLine).foregroundStyle(.secondary)
                 Text("\(model.ledger.doneToday) done today").foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -83,6 +94,20 @@ struct MenuView: View {
     private var progress: Double { model.ledger.progress(interval: interval) }
     private var minutesLeft: Int { max(0, Int(((interval - model.ledger.elapsed) / 60).rounded(.up))) }
 
+    private var isPaused: Bool {
+        if case .paused = model.quiet() { return true }
+        return false
+    }
+
+    /// The timer line says why nothing is counting when reminders are off.
+    private var timerLine: String {
+        switch model.quiet() {
+        case .paused(let until): return "Paused until \(until.formatted(date: .omitted, time: .shortened))"
+        case .outsideHours: return "Outside working hours"
+        case nil: return "Next set in \(minutesLeft) min"
+        }
+    }
+
     // MARK: Settings
 
     private var settings: some View {
@@ -90,6 +115,15 @@ struct MenuView: View {
             stepperRow("Squats per set", value: $perSet, in: 1...30, shown: "\(perSet)")
             stepperRow("Remind every", value: $intervalMinutes, in: 1...120, shown: "\(intervalMinutes) min")
             stepperRow("Carry-over cap", value: $maxOwed, in: 10...100, shown: "\(maxOwed)")
+            switchRow("Working hours only", isOn: $hoursOn)
+            if hoursOn {
+                Group {   // indented: these only apply while working hours are on
+                    stepperRow("From", value: $startHour, in: 0...23, shown: "\(startHour):00")
+                    stepperRow("Until", value: $endHour, in: 0...23, shown: "\(endHour):00")
+                    switchRow("Weekdays only", isOn: $weekdaysOnly)
+                }
+                .padding(.leading, 12)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text("Squat depth")
                 Slider(value: $depth, in: 0.3...1.2) {

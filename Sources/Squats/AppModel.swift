@@ -9,6 +9,7 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
     static let defaultSettings: [String: Any] = [
         "perSet": 10, "intervalMinutes": 30, "maxOwed": 30, "soundOn": true,
         "depth": SquatTracker.Tuning().down,
+        "hoursOn": false, "startHour": 9, "endHour": 18, "weekdaysOnly": true,
         "idleMinutes": 5,   // no UI: `defaults write io.github.fakhrillo.squats idleMinutes -int N`
     ]
     private static let tickSeconds: TimeInterval = 30
@@ -16,6 +17,10 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
 
     @Published private(set) var ledger: Ledger { didSet { save() } }
     @Published var sessionOpen = false
+    /// "Pause for an hour". Kept in UserDefaults so it survives a relaunch.
+    @Published private(set) var pause: Pause {
+        didSet { defaults.set(pause.until?.timeIntervalSince1970 ?? 0, forKey: "pausedUntil") }
+    }
 
     private let defaults = UserDefaults.standard
     private var gate = NoticeGate()
@@ -28,6 +33,8 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
         // Unreadable saved state starts from an empty ledger rather than crashing.
         ledger = defaults.data(forKey: "ledger")
             .flatMap { try? JSONDecoder().decode(Ledger.self, from: $0) } ?? Ledger()
+        let pausedUntil = defaults.double(forKey: "pausedUntil")
+        pause = Pause(until: pausedUntil > 0 ? Date(timeIntervalSince1970: pausedUntil) : nil)
         super.init()
     }
 
@@ -54,13 +61,33 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
         // In a video call: still sitting, so time counts, but the reminder waits until it ends.
         let inCall = !sessionOpen && Presence.cameraInUseElsewhere()
         let idleLimit = TimeInterval(defaults.integer(forKey: "idleMinutes") * 60)
-        let present = sessionOpen || inCall || Presence.idleSeconds() < idleLimit
+        // Paused or outside working hours: no sitting time counts and nothing is announced.
+        let quiet = quiet() != nil
+        let present = !quiet && (sessionOpen || inCall || Presence.idleSeconds() < idleLimit)
         // Always the constant tick length, never a wall-clock difference: sleep cannot inflate it.
         let due = ledger.tick(seconds: Self.tickSeconds, present: present, today: Self.today(),
                               perSet: perSet,
                               interval: TimeInterval(defaults.integer(forKey: "intervalMinutes") * 60),
                               maxOwed: defaults.integer(forKey: "maxOwed"))
-        if gate.shouldPost(due: due, inCall: inCall, sessionOpen: sessionOpen) { postNotice() }
+        if gate.shouldPost(due: due, hold: inCall, drop: sessionOpen || quiet) { postNotice() }
+    }
+
+    // MARK: Working hours and pause
+
+    /// Why reminders are not running right now, if they are not.
+    enum Quiet { case paused(until: Date), outsideHours }
+
+    func quiet(at now: Date = Date()) -> Quiet? {
+        if pause.isActive(at: now), let until = pause.until { return .paused(until: until) }
+        let schedule = Schedule(enabled: defaults.bool(forKey: "hoursOn"),
+                                startHour: defaults.integer(forKey: "startHour"),
+                                endHour: defaults.integer(forKey: "endHour"),
+                                weekdaysOnly: defaults.bool(forKey: "weekdaysOnly"))
+        return schedule.isActive(at: now) ? nil : .outsideHours
+    }
+
+    func togglePause() {
+        if pause.isActive(at: Date()) { pause.stop() } else { pause.start(at: Date(), for: 3600) }
     }
 
     private lazy var squatWindow = SquatWindow(model: self)
