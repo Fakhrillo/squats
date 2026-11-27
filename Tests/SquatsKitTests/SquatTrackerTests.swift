@@ -224,3 +224,53 @@ private func count(fixture name: String) throws -> Int {
     s.feed(still(0.6, 0.2)); #expect(s.tracker.unseenFor == 0)
     s.feed(Array(repeating: nil, count: 15 * 10)); #expect(s.tracker.unseenFor >= 9.9)
 }
+
+// MARK: Abandoned sets and calibration
+
+@Test func someoneInViewWhoNeverSquatsIsIdle() {                  // sat back down with the window open
+    var s = Sim(); s.feed(still(0.6, 72)); #expect(s.tracker.unseenFor == 0); #expect(s.tracker.idleFor >= 69)
+}
+
+@Test func aCountedSquatRestartsTheIdleClock() {
+    var s = Sim(); s.feed(still(0.6, 22)); #expect(s.tracker.idleFor >= 19)
+    s.feed(squat(from: 0.6, depth: 0.25)); s.feed(still(0.6, 2))
+    #expect(s.tracker.count == 1); #expect(s.tracker.idleFor < 3)
+}
+
+@Test func theDepthOfEachCountedSquatIsReported() {
+    var s = Sim(); s.feed(still(0.6, 1.2)); #expect(s.tracker.lastRepDepth == 0)
+    s.feed(squat(from: 0.6, depth: 0.25)); s.feed(still(0.6, 0.3))
+    #expect(abs(s.tracker.lastRepDepth - 1.0) < 0.1)             // 0.25 down with shoulders 0.25 wide
+    s.feed(squat(from: 0.6, depth: 0.30)); s.feed(still(0.6, 0.3))
+    #expect(abs(s.tracker.lastRepDepth - 1.2) < 0.1)
+}
+
+@Test func depthIsSetFromTheShallowestOfYourOwnSquats() {
+    typealias Tuning = SquatTracker.Tuning
+    #expect(Tuning.depth(fromSquats: []) == nil)
+    #expect(abs(Tuning.depth(fromSquats: [1.48, 1.29, 1.40])! - 0.774) < 0.001)   // the recorded clip: 0.77
+    #expect(Tuning.depth(fromSquats: [0.2, 0.9]) == Tuning.depthRange.lowerBound)
+    #expect(Tuning.depth(fromSquats: [3, 4]) == Tuning.depthRange.upperBound)
+    // Any squat the calibration run can see gives a depth the slider can show.
+    #expect(Tuning.depth(fromSquats: [Tuning.calibrationDown]) == Tuning.depthRange.lowerBound)
+}
+
+@Test func squatsThatComeUpShortAreStillActivity() {             // trying, and being told "go deeper"
+    var s = Sim(); s.feed(still(0.6, 1.2))
+    for _ in 0..<40 { s.feed(squat(from: 0.6, depth: 0.14)); s.feed(still(0.6, 0.4)) }
+    #expect(s.tracker.count == 0); #expect(s.tracker.shallowDips > 30); #expect(s.tracker.idleFor < 3)
+}
+
+@Test func gettingIntoPositionRestartsTheIdleClock() {
+    var s = Sim(); s.feed(Array(repeating: nil, count: 15 * 40)); #expect(s.tracker.idleFor >= 39)
+    s.feed(still(0.6, 1.3)); #expect(s.tracker.phase == .counting); #expect(s.tracker.idleFor < 1)
+}
+
+@Test func calibratingNeedsRoomForTheWholeSquat() {
+    typealias Tuning = SquatTracker.Tuning
+    var t = Tuning(); t.down = Tuning.calibrationDown; t.roomBelow = Tuning.calibrationRoom
+    // Shoulders 0.96 widths above the bottom edge: a 1.3-wide squat would leave the picture.
+    #expect(t.framing(y: 0.24, width: 0.25) == .tooClose(steps: 0.5))
+    #expect(t.framing(y: 0.50, width: 0.25) == .good)
+    #expect(t.framing(y: 0.733, width: 0.292) == .good)          // where the recorded clip stood
+}

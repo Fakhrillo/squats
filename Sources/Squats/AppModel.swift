@@ -65,7 +65,7 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
         let quiet = quiet() != nil
         let present = !quiet && (sessionOpen || inCall || Presence.idleSeconds() < idleLimit)
         // Always the constant tick length, never a wall-clock difference: sleep cannot inflate it.
-        let due = ledger.tick(seconds: Self.tickSeconds, present: present, today: Self.today(),
+        let due = ledger.tick(seconds: Self.tickSeconds, present: present, today: Self.dayKey(),
                               perSet: perSet,
                               interval: TimeInterval(defaults.integer(forKey: "intervalMinutes") * 60),
                               maxOwed: defaults.integer(forKey: "maxOwed"))
@@ -92,8 +92,8 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
 
     private lazy var squatWindow = SquatWindow(model: self)
 
-    func openSession() {
-        squatWindow.show()
+    func openSession(calibrating: Bool = false) {
+        squatWindow.show(calibrating: calibrating)
     }
 
     func recordSquat() {
@@ -114,12 +114,13 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
         if let data = try? JSONEncoder().encode(ledger) { defaults.set(data, forKey: "ledger") }
     }
 
-    private static func today() -> String {
+    /// The ledger's name for a day: "yyyy-MM-dd" in local time.
+    static func dayKey(_ date: Date = Date()) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"   // local time zone by default
-        return formatter.string(from: Date())
+        return formatter.string(from: date)
     }
 
     // MARK: Notification
@@ -129,7 +130,7 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
         let content = UNMutableNotificationContent()
         content.body = ledger.noticeText(perSet: perSet)
         content.categoryIdentifier = "squats"
-        content.sound = .default
+        content.sound = defaults.bool(forKey: "soundOn") ? .default : nil
         // Fixed identifier: a new reminder replaces the previous one.
         UNUserNotificationCenter.current()
             .add(UNNotificationRequest(identifier: Self.noticeID, content: content, trigger: nil))

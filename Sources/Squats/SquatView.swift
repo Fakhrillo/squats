@@ -65,7 +65,8 @@ struct SquatOverlay: View {
                            guideScale: !counting && live.framing != .good ? live.sizeAtGoodSpot : nil)
                 if counting {
                     CountingHUD(count: session.count, target: session.target, depth: live.depth,
-                                deepEnough: live.deepEnough, cameUpShort: session.cameUpShort)
+                                deepEnough: live.deepEnough, cameUpShort: session.cameUpShort,
+                                calibrating: session.calibrating)
                 } else {
                     SetupGuide(framing: live.framing, stillProgress: live.stillProgress)
                     Ripple(trigger: session.reachedGoodSpot).position(chest ?? CGPoint(x: 320, y: 180))
@@ -251,22 +252,36 @@ private struct CountingHUD: View {
     let depth: Double
     let deepEnough: Bool
     let cameUpShort: Int
+    /// Measuring their squats: no target line and no "deep enough", which would cut them short.
+    var calibrating = false
     @State private var shortUntil = Date.distantPast
 
     var body: some View {
+        let cue = deepEnough && !calibrating
         ZStack {
             CountRing(count: count, target: target)
                 .padding(18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            DepthBar(depth: depth, deepEnough: deepEnough)
-                .padding(.trailing, 22)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            if calibrating {
+                Text("Setting your squat depth")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.6), in: Capsule())
+                    .padding(.top, 22)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                DepthBar(depth: depth, deepEnough: deepEnough)
+                    .padding(.trailing, 22)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            }
             Text(hint)
                 .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .foregroundStyle(deepEnough ? .black : .white)
+                .foregroundStyle(cue ? .black : .white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 9)
-                .background(deepEnough ? AnyShapeStyle(Palette.green) : AnyShapeStyle(.black.opacity(0.6)),
+                .background(cue ? AnyShapeStyle(Palette.green) : AnyShapeStyle(.black.opacity(0.6)),
                             in: Capsule())
                 .padding(.bottom, 18)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -276,6 +291,13 @@ private struct CountingHUD: View {
 
     /// Re-read with every camera frame, so the two-second hint needs no timer of its own.
     private var hint: String {
+        if calibrating {
+            switch target - count {
+            case target: return "Squat the way you normally do"
+            case 1: return "One more"
+            case let left: return "\(left) more"
+            }
+        }
         if deepEnough { return "Deep enough, come up" }
         if Date() < shortUntil { return "Go a little deeper" }
         switch target - count {
@@ -451,7 +473,8 @@ private struct FinishCard: View {
                     .symbolEffect(.bounce, value: drawn)
             }
             .frame(width: 104, height: 104)
-            Text("\(counted(summary.squats, "squat")) in \(counted(summary.seconds, "second"))")
+            Text(summary.calibrated ? "Depth set from your squats"
+                 : "\(counted(summary.squats, "squat")) in \(counted(summary.seconds, "second"))")
                 .font(.system(size: 30, weight: .bold, design: .rounded))
             Text("\(summary.doneToday) done today · "
                  + (summary.stillOwed == 0 ? "all caught up" : "\(summary.stillOwed) still owed"))

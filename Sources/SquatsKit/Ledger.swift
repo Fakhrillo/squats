@@ -9,17 +9,34 @@ public struct Ledger: Codable, Equatable {
     public var elapsed: TimeInterval = 0
     /// "yyyy-MM-dd" of the last tick.
     public var day = ""
+    /// Squats done on earlier days, by "yyyy-MM-dd", for the week view. Days without any are left out.
+    public private(set) var history: [String: Int] = [:]
 
     public init() {}
+
+    public init(from decoder: Decoder) throws {
+        let saved = try decoder.container(keyedBy: CodingKeys.self)
+        owed = try saved.decode(Int.self, forKey: .owed)
+        doneToday = try saved.decode(Int.self, forKey: .doneToday)
+        elapsed = try saved.decode(TimeInterval.self, forKey: .elapsed)
+        day = try saved.decode(String.self, forKey: .day)
+        // Not in ledgers saved before the week view: those must still load, not start from empty.
+        history = try saved.decodeIfPresent([String: Int].self, forKey: .history) ?? [:]
+    }
 
     /// Returns true when this tick completed an interval (a set became due).
     /// At most one set per tick, however large `seconds` is.
     public mutating func tick(seconds: TimeInterval, present: Bool, today: String,
                               perSet: Int, interval: TimeInterval, maxOwed: Int) -> Bool {
         if today != day {
+            if doneToday > 0, !day.isEmpty { history[day] = doneToday }
+            // The six most recent days with squats: with today, all a seven-day view can show.
+            history = Dictionary(uniqueKeysWithValues: history.sorted { $0.key > $1.key }.prefix(6).map { ($0.key, $0.value) })
             day = today
             owed = 0
-            doneToday = 0
+            // Normally nothing is filed under today. If the date went backwards and came round
+            // again (a time zone change), pick that day's count back up.
+            doneToday = history.removeValue(forKey: today) ?? 0
             elapsed = 0
         }
         guard present else { return false }
@@ -41,6 +58,9 @@ public struct Ledger: Codable, Equatable {
     }
 
     public func target(perSet: Int) -> Int { owed > 0 ? owed : perSet }
+
+    /// Squats done on a day, given as "yyyy-MM-dd".
+    public func done(on day: String) -> Int { day == self.day ? doneToday : history[day] ?? 0 }
 
     // MARK: What the menu shows
 

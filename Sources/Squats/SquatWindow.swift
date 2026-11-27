@@ -11,13 +11,15 @@ final class SquatWindow: NSObject, NSWindowDelegate {
 
     init(model: AppModel) { self.model = model }
 
-    func show() {
-        if let window {   // already open: bring it forward
+    /// `calibrating`: three squats that set the "Squat depth" setting instead of working off a set.
+    func show(calibrating: Bool = false) {
+        if let window, session?.calibrating == calibrating {   // already open: bring it forward
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
-        let session = SquatSession(model: model) { [weak self] in self?.window?.close() }
+        window?.close()   // the other kind is open: what was just asked for replaces it
+        let session = SquatSession(model: model, calibrating: calibrating) { [weak self] in self?.window?.close() }
         let window = NSWindow(contentViewController: NSHostingController(rootView: SquatView(session: session)))
         window.title = "Squats"
         window.styleMask = [.titled, .closable]
@@ -71,11 +73,15 @@ final class SquatSession: ObservableObject {
 
     struct Summary {
         let squats, seconds, doneToday, stillOwed: Int
+        /// This run set the squat depth.
+        var calibrated = false
     }
 
     let camera = PoseCamera()
     /// Fixed when the window opens; squats that come due mid-set do not raise it.
     let target: Int
+    /// Measuring how deep this person squats, to set "Squat depth" from it.
+    let calibrating: Bool
     let close: () -> Void
     let figure = FigureSmoother()
 
@@ -97,19 +103,27 @@ final class SquatSession: ObservableObject {
     private var tracker: SquatTracker
     private var startedAt: TimeInterval?
     private let soundOn = UserDefaults.standard.bool(forKey: "soundOn")
-    /// Nobody in view this long: close, so a set you were called away from does not leave the
-    /// camera on.
+    /// Nobody squatting, or trying to, for this long: close, so a set you were called away from,
+    /// or sat back down from, does not leave the camera on.
     private static let abandonAfter: TimeInterval = 60
+    private static let calibrationSquats = 3
+    private var depths: [Double] = []   // how deep each counted squat went
     private var finished = false
 
-    init(model: AppModel, close: @escaping () -> Void) {
+    init(model: AppModel, calibrating: Bool = false, close: @escaping () -> Void) {
         self.model = model
+        self.calibrating = calibrating
         self.close = close
-        target = model.ledger.target(perSet: model.perSet)
+        target = calibrating ? Self.calibrationSquats : model.ledger.target(perSet: model.perSet)
         var tuning = SquatTracker.Tuning()
-        let depth = UserDefaults.standard.double(forKey: "depth")
-        tuning.up *= depth / tuning.down   // keep the up/down ratio when the depth slider moves
-        tuning.down = depth
+        if calibrating {
+            tuning.down = SquatTracker.Tuning.calibrationDown   // no depth to hold them to yet
+            tuning.roomBelow = SquatTracker.Tuning.calibrationRoom
+        } else {
+            let depth = UserDefaults.standard.double(forKey: "depth")
+            tuning.up *= depth / tuning.down   // keep the up/down ratio when the depth slider moves
+            tuning.down = depth
+        }
         self.tuning = tuning
         tracker = SquatTracker(tuning: tuning)
     }
@@ -130,7 +144,8 @@ final class SquatSession: ObservableObject {
         finished = true
         camera.stop()
         model.sessionOpen = false
-        model.sessionEnded(reachedTarget: count >= target)
+        // Three calibration squats are not a set: they must not restart the sitting countdown.
+        model.sessionEnded(reachedTarget: !calibrating && count >= target)
     }
 
     func handle(_ frame: PoseFrame) {
@@ -139,7 +154,7 @@ final class SquatSession: ObservableObject {
         guard count < target else { return }
         let was = (phase: tracker.phase, framing: tracker.framing, shallow: tracker.shallowDips)
         let completedRep = tracker.add(frame)
-        if tracker.unseenFor > Self.abandonAfter {
+        if tracker.idleFor > Self.abandonAfter {
             close()
             return
         }
@@ -157,15 +172,19 @@ final class SquatSession: ObservableObject {
                     deepEnough: tracker.isDeepEnough, seconds: seconds)
         guard completedRep else { return }
         count += 1
-        model.recordSquat()
+        depths.append(tracker.lastRepDepth)
+        model.recordSquat()   // calibration squats are squats too
         guard count == target else {
             play("Tink")
             return
         }
         play("Glass")
         camera.stop()   // the set is done: the green light goes off while the summary is up
+        if calibrating, let depth = SquatTracker.Tuning.depth(fromSquats: depths) {
+            UserDefaults.standard.set(depth, forKey: "depth")
+        }
         summary = Summary(squats: count, seconds: seconds, doneToday: model.ledger.doneToday,
-                          stillOwed: model.ledger.owed)
+                          stillOwed: model.ledger.owed, calibrated: calibrating)
         Task {
             try? await Task.sleep(for: .seconds(3.5))
             if !finished { close() }   // already closed by hand: `close` would hit a newer window

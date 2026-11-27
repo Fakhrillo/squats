@@ -29,6 +29,7 @@ struct MenuView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             status
+            week
 
             Button(model.ledger.actionText(perSet: perSet)) { model.openSession() }
                 .buttonStyle(PrimaryButtonStyle())
@@ -90,6 +91,32 @@ struct MenuView: View {
         }
     }
 
+    /// Squats per day for the last seven days; today is the coral bar on the right.
+    private var week: some View {
+        let days = (0..<7).reversed().compactMap { Calendar.current.date(byAdding: .day, value: -$0, to: Date()) }
+        let counts = days.map { model.ledger.done(on: AppModel.dayKey($0)) }
+        let most = max(counts.max() ?? 0, 1)
+        return HStack(alignment: .bottom, spacing: 8) {
+            ForEach(Array(zip(days, counts).enumerated()), id: \.offset) { index, day in
+                VStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(index == days.count - 1 ? Self.accent : Color.primary.opacity(0.22))
+                        .frame(height: max(3, 30 * Double(day.1) / Double(most)))
+                    Text(day.0.formatted(.dateTime.weekday(.narrow)))
+                        .font(.caption2)
+                        .foregroundStyle(index == days.count - 1 ? .primary : .secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(day.0.formatted(.dateTime.weekday(.wide))): \(day.1) squats")
+            }
+        }
+        .frame(height: 48, alignment: .bottom)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Squats in the last seven days: " + zip(days, counts).map {
+            "\($0.formatted(.dateTime.weekday(.wide))) \($1)"
+        }.joined(separator: ", "))
+    }
+
     private var interval: Double { Double(intervalMinutes) * 60 }
     private var progress: Double { model.ledger.progress(interval: interval) }
     private var minutesLeft: Int { max(0, Int(((interval - model.ledger.elapsed) / 60).rounded(.up))) }
@@ -126,8 +153,14 @@ struct MenuView: View {
                 .padding(.leading, 12)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("Squat depth")
-                Slider(value: $depth, in: 0.3...1.2) {
+                HStack {
+                    Text("Squat depth")
+                    Spacer()
+                    // Three squats in front of the camera set the slider from how deep you go.
+                    Button("Calibrate…") { model.openSession(calibrating: true) }
+                        .controlSize(.small)
+                }
+                Slider(value: $depth, in: SquatTracker.Tuning.depthRange) {
                     Text("Squat depth")
                 } minimumValueLabel: {
                     Text("Shallower").font(.caption).foregroundStyle(.secondary)

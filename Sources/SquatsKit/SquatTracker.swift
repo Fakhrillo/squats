@@ -9,6 +9,8 @@ public struct RepCounter {
     public private(set) var shallow = 0
     /// `drop` has reached `down` in the rep in progress: it will count on the way up.
     public private(set) var armed = false
+    /// How deep the last counted rep went.
+    public private(set) var lastPeak = 0.0
     private var startedAt: TimeInterval?   // when `drop` first rose above `up`
     private var peak = 0.0
 
@@ -31,6 +33,7 @@ public struct RepCounter {
             return false
         }
         count += 1
+        lastPeak = peak
         return true
     }
 
@@ -82,7 +85,27 @@ public struct SquatTracker {
         /// Where "step back" sends you: about 1.4 m, comfortably inside the range.
         public var aimWidth = 0.34
         public var stepMetres = 0.6
+        /// How far below standing height the shoulders must still be in the picture, in shoulder
+        /// widths. nil: far enough to reach `down`, plus a margin.
+        public var roomBelow: Double?
         public init() {}
+
+        /// What "Squat depth" (`down`) may be set to, by the slider or from your own squats.
+        public static let depthRange = 0.3...1.2
+        /// `down` as a share of the shallowest squat it is tuned on: 0.77 came from a peak of 1.29.
+        static let depthShare = 0.6
+        /// While calibrating there is no depth yet, so any dip this deep is taken for a squat: the
+        /// shallowest one that still gives a depth inside `depthRange`.
+        public static let calibrationDown = depthRange.lowerBound / depthShare
+        // ponytail: while calibrating the whole squat has to stay in the picture, not just the part
+        // that counts, or its depth is read short. The recorded squats peaked at 1.48; anyone who
+        // goes deeper than this gets a depth a little too shallow, and has the slider.
+        public static let calibrationRoom = 1.7
+
+        /// The depth that suits squats which went this deep, in shoulder widths; nil without any.
+        public static func depth(fromSquats peaks: [Double]) -> Double? {
+            peaks.min().map { min(max($0 * depthShare, depthRange.lowerBound), depthRange.upperBound) }
+        }
 
         /// Judges a standing position: shoulder midpoint height `y` and shoulder `width`, both in
         /// image heights. `lenient` widens every limit a little: once someone is at a good spot,
@@ -96,7 +119,9 @@ public struct SquatTracker {
             if width < goodWidth.lowerBound * (1 - slack) { return .tooFar(steps: steps(to: goodWidth.lowerBound * 1.2)) }
             // Right size, but the shoulders would leave the picture before the squat is deep
             // enough, or they sit at its top edge. A little further back fixes both.
-            if y / width < down + 0.4 - 2 * slack || y > 0.92 + slack / 2 { return .tooClose(steps: 0.5) }
+            if y / width < (roomBelow ?? down + 0.4) - 2 * slack || y > 0.92 + slack / 2 {
+                return .tooClose(steps: 0.5)
+            }
             return .good
         }
     }
@@ -111,6 +136,11 @@ public struct SquatTracker {
     public var isDeepEnough: Bool { reps.armed }
     /// Dips that came up short so far.
     public var shallowDips: Int { reps.shallow }
+    /// How deep the last counted squat went, in shoulder widths.
+    public var lastRepDepth: Double { reps.lastPeak }
+    /// Seconds since anything that looks like doing a set: getting into position, a squat, or one
+    /// that came up short. It runs whether or not anyone is in view, from the first frame on.
+    public private(set) var idleFor: TimeInterval = 0
     /// Seconds since a person was last tracked (or since the first frame, if nobody has been).
     public private(set) var unseenFor: TimeInterval = 0
     /// Where the tracked person stands; nil while nobody is tracked.
@@ -125,6 +155,7 @@ public struct SquatTracker {
     private var standingY = 0.0, baselineWidth = 1.0
     private var lastSeen: TimeInterval?
     private var firstFrameAt: TimeInterval?
+    private var lastActiveAt: TimeInterval?
 
     public init(tuning: Tuning = Tuning()) {
         self.tuning = tuning
@@ -134,6 +165,7 @@ public struct SquatTracker {
     /// True when this frame completes a rep.
     public mutating func add(_ frame: PoseFrame) -> Bool {
         if firstFrameAt == nil { firstFrameAt = frame.time }
+        idleFor = frame.time - (lastActiveAt ?? firstFrameAt ?? frame.time)
         guard let sample = usableSample(from: frame) else {
             unseenFor = frame.time - (lastSeen ?? firstFrameAt ?? frame.time)
             if phase != .searching, unseenFor > tuning.lostSeconds {
@@ -171,6 +203,8 @@ public struct SquatTracker {
             baselineWidth = mean(window.map(\.width))
             highs = window.map { ($0.time, $0.y) }   // the still second is the first evidence of "standing"
             phase = .counting
+            lastActiveAt = sample.time
+            idleFor = 0
             return false
         case .counting:
             window = Array(window.suffix(tuning.smoothing))
@@ -191,7 +225,13 @@ public struct SquatTracker {
             }
             drop = (high - y) / baselineWidth
             if drop <= tuning.up { standingY = high }
-            return reps.add(drop: drop, at: sample.time)
+            let shallowBefore = reps.shallow
+            let completed = reps.add(drop: drop, at: sample.time)
+            if completed || reps.shallow > shallowBefore {
+                lastActiveAt = sample.time
+                idleFor = 0
+            }
+            return completed
         }
     }
 }

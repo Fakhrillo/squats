@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import SquatsKit
 
@@ -124,4 +125,35 @@ private extension Ledger {
     l.run(30); #expect(l.progress(interval: 1800) == 0.5)
     l.elapsed = 5000; #expect(l.progress(interval: 1800) == 1)        // interval shortened mid-run
     #expect(l.progress(interval: 0) == 0)
+}
+
+// MARK: The week
+
+@Test func aNewDayFilesTheOldOneInTheHistory() {
+    var l = Ledger(); l.run(1, today: "2026-11-23"); l.squats(12)
+    #expect(l.done(on: "2026-11-23") == 12)
+    l.run(1, today: "2026-11-24"); l.squats(5)
+    #expect(l.done(on: "2026-11-23") == 12); #expect(l.done(on: "2026-11-24") == 5)
+    #expect(l.done(on: "2026-11-22") == 0)
+}
+
+@Test func historyKeepsOnlyTheLastWeek() {
+    var l = Ledger()
+    for day in 10...20 { l.run(1, today: "2026-11-\(day)"); l.squats(day) }
+    #expect(l.done(on: "2026-11-20") == 20); #expect(l.done(on: "2026-11-14") == 14)
+    #expect(l.done(on: "2026-11-13") == 0); #expect(l.history.count == 6)
+}
+
+@Test func aLedgerSavedBeforeTheHistoryExistedStillLoads() throws {
+    let saved = Data(#"{"owed":7,"doneToday":13,"elapsed":90,"day":"2026-11-26"}"#.utf8)
+    let l = try JSONDecoder().decode(Ledger.self, from: saved)
+    #expect(l.owed == 7); #expect(l.doneToday == 13); #expect(l.history.isEmpty)
+    #expect(try JSONDecoder().decode(Ledger.self, from: JSONEncoder().encode(l)) == l)
+}
+
+@Test func aDayThatComesRoundAgainKeepsItsSquats() {             // time zone moved west across midnight
+    var l = Ledger(); l.run(1, today: "2026-11-26"); l.squats(10)
+    l.run(1, today: "2026-11-25"); #expect(l.done(on: "2026-11-26") == 10)
+    l.run(1, today: "2026-11-26"); l.squats(4); #expect(l.done(on: "2026-11-26") == 14)
+    l.run(1, today: "2026-11-27"); #expect(l.done(on: "2026-11-26") == 14)
 }
