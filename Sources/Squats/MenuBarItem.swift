@@ -36,6 +36,9 @@ final class MenuBarItem: NSObject, NSPopoverDelegate {
         model.$sessionOpen.filter { $0 }   // starting a set closes the menu
             .sink { [weak self] _ in self?.popover.performClose(nil) }
             .store(in: &watching)
+        model.closeMenu
+            .sink { [weak self] in self?.popover.performClose(nil) }
+            .store(in: &watching)
     }
 
     @objc func toggle() {

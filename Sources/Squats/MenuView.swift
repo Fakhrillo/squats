@@ -6,6 +6,7 @@ import SwiftUI
 /// settings folded away because they are rarely touched.
 struct MenuView: View {
     @ObservedObject var model: AppModel
+    @ObservedObject private var strava: StravaAccount
     @AppStorage("perSet") private var perSet = 10
     @AppStorage("intervalMinutes") private var intervalMinutes = 30
     @AppStorage("maxOwed") private var maxOwed = 30
@@ -23,6 +24,7 @@ struct MenuView: View {
 
     init(model: AppModel, settingsOpen: Bool = false) {
         self.model = model
+        strava = model.strava
         _showSettings = State(initialValue: settingsOpen)
     }
 
@@ -170,6 +172,12 @@ struct MenuView: View {
                 .labelsHidden()
             }
             switchRow("Sound", isOn: $soundOn)
+            HStack {
+                Text("Strava")
+                Spacer()
+                Button(strava.status == .connected ? "Connected" : "Connect…") { model.openStrava() }
+                    .controlSize(.small)
+            }
             switchRow("Start at login", isOn: Binding(
                 get: { startAtLogin },
                 set: { on in

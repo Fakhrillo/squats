@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SquatsKit
 import UserNotifications
 
@@ -11,6 +12,7 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
         "depth": SquatTracker.Tuning().down,
         "hoursOn": false, "startHour": 9, "endHour": 18, "weekdaysOnly": true,
         "idleMinutes": 5,   // no UI: `defaults write io.github.fakhrillo.squats idleMinutes -int N`
+        "stravaPrivate": true,
     ]
     private static let tickSeconds: TimeInterval = 30
     private static let noticeID = "squats.due"
@@ -21,6 +23,11 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
     @Published private(set) var pause: Pause {
         didSet { defaults.set(pause.until?.timeIntervalSince1970 ?? 0, forKey: "pausedUntil") }
     }
+
+    /// Off until the user connects it.
+    let strava = StravaAccount()
+    /// Opening one of the app's windows from the menu closes the menu.
+    let closeMenu = PassthroughSubject<Void, Never>()
 
     private let defaults = UserDefaults.standard
     private var gate = NoticeGate()
@@ -70,6 +77,7 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
                               interval: TimeInterval(defaults.integer(forKey: "intervalMinutes") * 60),
                               maxOwed: defaults.integer(forKey: "maxOwed"))
         if gate.shouldPost(due: due, hold: inCall, drop: sessionOpen || quiet) { postNotice() }
+        strava.sendFinishedDays(ledger)
     }
 
     // MARK: Working hours and pause
@@ -94,6 +102,13 @@ final class AppModel: NSObject, ObservableObject, UNUserNotificationCenterDelega
 
     func openSession(calibrating: Bool = false) {
         squatWindow.show(calibrating: calibrating)
+    }
+
+    private let stravaWindow = StravaWindow()
+
+    func openStrava() {
+        closeMenu.send()
+        stravaWindow.show(model: self)
     }
 
     func recordSquat() {
