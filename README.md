@@ -24,12 +24,16 @@
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/demo.gif" width="640" alt="A set of ten squats: a figure follows the body down and up, a depth bar fills past its target line, the count climbs from 0 to 10 and a tick appears">
+</p>
+
+<p align="center">
   <img src="docs/screenshots/menu.png" height="176" alt="The menu: a countdown ring, squats done today, a bar for each of the last seven days and a button to start a set">
   <img src="docs/screenshots/step-back.png" height="176" alt="The counter asking you to step back one step, with a dashed outline of how large you should look">
   <img src="docs/screenshots/counting.png" height="176" alt="The counter mid-set: 5 of 10 squats, a figure following the body and a depth bar past its target line">
 </p>
 
-<p align="center"><sub>Drawn by the app's own views. The camera picture behind the figure is left out.</sub></p>
+<p align="center"><sub>A recorded set of ten real squats, drawn by the app's own views. The camera picture behind the figure is left out.</sub></p>
 
 ## Why
 
@@ -70,9 +74,26 @@ forgotten: it is owed.
 
 ## Install
 
-There is no download yet, so you build it yourself. You need macOS 15 or later, the Xcode
-command-line tools and Swift 6. It was developed and tested on macOS 27 on Apple silicon with the
-built-in camera.
+1. Download [Squats.zip](https://github.com/Fakhrillo/squats/releases/latest/download/Squats.zip)
+   and unzip it.
+2. Move **Squats** into your Applications folder and open it.
+3. macOS blocks it the first time, because the app is not notarized by Apple. Open
+   **System Settings → Privacy & Security**, scroll down to the line about Squats and click
+   **Open Anyway**. You do this once.
+
+It needs macOS 15 or later and runs on Apple silicon and Intel Macs. It was developed and tested
+on macOS 27 on Apple silicon with the built-in camera.
+
+Squats lives in the menu bar and has no Dock icon. Allow notifications and camera access when
+macOS asks. For a banner that waits for you instead of sliding away, set the Squats alert style to
+**Persistent** in System Settings → Notifications.
+
+To remove it, choose **Quit Squats** in the menu and delete the app from `/Applications`. If you
+connected Strava, press **Disconnect** first so that its keys are removed too.
+
+### Build it yourself
+
+You need the Xcode command-line tools and Swift 6.
 
 ```bash
 git clone https://github.com/Fakhrillo/squats.git
@@ -82,20 +103,13 @@ cp -R build/Squats.app /Applications/
 open /Applications/Squats.app
 ```
 
-Squats lives in the menu bar and has no Dock icon. Allow notifications and camera access when
-macOS asks. For a banner that waits for you instead of sliding away, set the Squats alert style to
-**Persistent** in System Settings → Notifications.
-
 `scripts/bundle.sh` signs the app with an "Apple Development" certificate from your keychain. If
 you do not have one, sign ad hoc instead. macOS may then ask for camera access again after each
-rebuild.
+rebuild. The download is signed ad hoc too, so expect the same after you update it.
 
 ```bash
 SIGN_IDENTITY=- scripts/bundle.sh
 ```
-
-To remove it, choose **Quit Squats** in the menu and delete the app from `/Applications`. If you
-connected Strava, press **Disconnect** first so that its keys are removed too.
 
 ## Settings
 
@@ -196,7 +210,8 @@ Coverage:
 - Built-in camera only, and macOS only.
 - Long stretches of reading with no input, and audio-only calls, are not counted as sitting.
 - So far it has been used by one person on one Mac running macOS 27. Start at login, and the
-  message shown when camera access is denied, have not been tried.
+  message shown when camera access is denied, have not been tried. Nor has the Intel half of the
+  download.
 
 ## Development
 
@@ -206,6 +221,13 @@ swift scripts/make-icon.swift  # redraw the icon
 ```
 
 The tests also run on GitHub for every push and pull request.
+
+The download on the releases page is made like this:
+
+```bash
+UNIVERSAL=1 SIGN_IDENTITY=- scripts/bundle.sh   # Apple silicon and Intel, signed ad hoc
+ditto -c -k --norsrc --noextattr --keepParent build/Squats.app build/Squats.zip
+```
 
 | Path | What lives there |
 |---|---|
