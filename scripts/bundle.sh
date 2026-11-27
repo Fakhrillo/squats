@@ -5,12 +5,14 @@ set -euo pipefail
 
 NAME=Squats
 cd "$(dirname "$0")/.."
-swift build -c release --product "$NAME"
+# UNIVERSAL=1 also builds for Intel Macs. Slower; used for the release download.
+ARCHS=${UNIVERSAL:+--arch arm64 --arch x86_64}
+swift build -c release --product "$NAME" $ARCHS
 
 APP="build/$NAME.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp ".build/release/$NAME" "$APP/Contents/MacOS/$NAME"
+cp "$(swift build -c release $ARCHS --show-bin-path)/$NAME" "$APP/Contents/MacOS/$NAME"
 cp Support/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"   # redraw with: swift scripts/make-icon.swift
 
 cat > "$APP/Contents/Info.plist" <<PLIST
