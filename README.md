@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/demo.gif" width="640" alt="A set of ten squats: a figure follows the body down and up, a depth bar fills past its target line, the count climbs from 0 to 10 and a tick appears">
+  <img src="docs/screenshots/demo.gif" width="640" alt="A set of five squats: a figure follows the body down and up, a depth bar fills past its target line, the count climbs from 0 to 5 and a tick appears">
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
   <img src="docs/screenshots/counting.png" height="176" alt="The counter mid-set: 5 of 10 squats, a figure following the body and a depth bar past its target line">
 </p>
 
-<p align="center"><sub>A recorded set of ten real squats, drawn by the app's own views. The camera picture behind the figure is left out.</sub></p>
+<p align="center"><sub>Five recorded squats, drawn by the app's own views. The camera picture behind the figure is left out.</sub></p>
 
 ## Why
 
